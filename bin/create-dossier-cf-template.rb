@@ -3,9 +3,24 @@ require 'cloudformation-ruby-dsl/cfntemplate'
 require 'code_pipeline_role_policy_doc'
 require 'code_build_role_policy_doc'
 require 'dossier_cp_stages'
+require 'lambda_cp_stages'
 
 template do
   @stack_name = 'dossier-system'
+
+  github_oauth_token_name = 'GitHubOauthToken'
+  parameter(
+    github_oauth_token_name,
+    {
+      Type: 'String',
+      Description: 'The GitHub OAuth token used for CodePipeline and CodeBuild to access the GitHub repositories.',
+      NoEcho: true # mask the value
+    }
+  )
+
+  ##################################################################
+  # Shared Resources
+  ##################################################################
 
   cp_role_name = 'CodePipelineRole'
   resource cp_role_name,
@@ -52,13 +67,17 @@ template do
   resource dossier_artifacts_bucket_name,
     Type: 'AWS::S3::Bucket'
 
+  ##################################################################
+  # Latex Compilation Pipeline
+  ##################################################################
+
   latex_cb_proj_name = 'DossierLatexCodeBuildProject'
   latex_cb_assume_role_policy_name = 'DossierLatexCodeBuildAssumeRolePolicy'
   resource latex_cb_assume_role_policy_name,
     Type: 'AWS::IAM::Policy',
     Properties: {
       PolicyName: latex_cb_assume_role_policy_name,
-      PolicyDocument: CodeBuildRolePolicyDoc.latex_cb_policy_document(
+      PolicyDocument: CodeBuildRolePolicyDoc.cb_policy_document(
         latex_cb_proj_name,
         ref(dossier_artifacts_bucket_name)
       ),
@@ -80,7 +99,6 @@ template do
         ComputeType: 'BUILD_GENERAL1_SMALL'
       },
       Artifacts: {
-        Name: 'dossier-latex-files.zip',
         Type: 'CODEPIPELINE',
         Location: ref(dossier_artifacts_bucket_name),
         Packaging: 'ZIP'
@@ -102,5 +120,56 @@ template do
       RestartExecutionOnUpdate: true
     }
 
-  # NOTES: need to build the pipeline for the lambda and its deployment
+  ##################################################################
+  # Lambda Pipeline
+  ##################################################################
+
+  lambda_cb_proj_name = 'DossierLambdaCodeBuildProject'
+  lambda_cb_assume_role_policy_name = 'DossierLambdaCodeBuildAssumeRolePolicy'
+  resource lambda_cb_assume_role_policy_name,
+    Type: 'AWS::IAM::Policy',
+    Properties: {
+      PolicyName: lambda_cb_assume_role_policy_name,
+      PolicyDocument: CodeBuildRolePolicyDoc.cb_policy_document(
+        lambda_cb_proj_name,
+        ref(dossier_artifacts_bucket_name)
+      ),
+      Roles: [ref(cb_role_name)]
+    }
+
+  resource lambda_cb_proj_name,
+    Type: 'AWS::CodeBuild::Project',
+    Properties: {
+      Name: lambda_cb_proj_name,
+      Description: 'Compile and assemble the AWS Lambda',
+      ServiceRole: get_att(cb_role_name, 'Arn'),
+      Source: {
+        Type: 'CODEPIPELINE'
+      },
+      Environment: {
+        Type: 'LINUX_CONTAINER',
+        Image: '1science/sbt',
+        ComputeType: 'BUILD_GENERAL1_SMALL'
+      },
+      Artifacts: {
+        Type: 'CODEPIPELINE',
+        Location: ref(dossier_artifacts_bucket_name)
+      },
+      TimeoutInMinutes: 10
+    }
+
+  lambda_cp_name = 'DossierLambdaCodePipeline'
+  resource lambda_cp_name,
+    Type: 'AWS::CodePipeline::Pipeline',
+    Properties: {
+      RoleArn: get_att(cp_role_name, 'Arn'),
+      Stages: LambdaCpStages.code_pipeline_stages(ref(github_oauth_token_name), ref(lambda_cb_proj_name)),
+      ArtifactStore: {
+        Type: 'S3',
+        Location: ref(dossier_artifacts_bucket_name)
+      },
+      Name: lambda_cp_name,
+      RestartExecutionOnUpdate: true
+    }
+
 end.exec!

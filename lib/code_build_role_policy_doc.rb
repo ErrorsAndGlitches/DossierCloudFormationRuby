@@ -1,6 +1,6 @@
 module CodeBuildRolePolicyDoc
 
-  def self.latex_cb_policy_document(cb_project_name, artifacts_bucket_name)
+  def self.cb_policy_document(cb_project_name, artifacts_bucket_name)
     {
       :Version => '2012-10-17',
       :Statement => [

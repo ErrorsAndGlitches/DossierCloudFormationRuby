@@ -1,23 +1,25 @@
-module DossierCpStages
-  def self.code_pipeline_stages(code_build_ref)
-    latex_src_snapshot_name = 'LatexSourceSnapshot'
+module LambdaCpStages
+  def self.code_pipeline_stages(token, code_build_ref)
+    lambda_src_snapshot_name = 'LambdaSourceSnapshot'
     [
       {
         Name: 'Source',
         Actions: [
           {
-            Name: 'LatexSourceAction',
+            Name: 'LambdaSourceAction',
             ActionTypeId: {
               Category: 'Source',
-              Owner: 'AWS',
+              Owner: 'ThirdParty',
               Version: 1,
-              Provider: 'CodeCommit'
+              Provider: 'GitHub'
             },
             Configuration: {
-              RepositoryName: 'dossiers',
-              BranchName: 'mainline'
+              Owner: 'ErrorsAndGlitches',
+              Repo: 'S3DropboxLambda',
+              Branch: 'master',
+              OAuthToken: token
             },
-            OutputArtifacts: [{ Name: latex_src_snapshot_name }],
+            OutputArtifacts: [{ Name: lambda_src_snapshot_name }],
             RunOrder: 1
           }
         ]
@@ -26,7 +28,7 @@ module DossierCpStages
         Name: 'Build',
         Actions: [
           {
-            Name: 'LatexCompilation',
+            Name: 'LambdaCompilation',
             ActionTypeId: {
               Category: 'Build',
               Owner: 'AWS',
@@ -36,8 +38,8 @@ module DossierCpStages
             Configuration: {
               ProjectName: code_build_ref
             },
-            InputArtifacts: [{ Name: latex_src_snapshot_name }],
-            OutputArtifacts: [{ Name: 'DossierPdfs' }],
+            InputArtifacts: [{ Name: lambda_src_snapshot_name }],
+            OutputArtifacts: [{ Name: 'LambdaJar' }],
             RunOrder: 1
           }
         ]
