@@ -3,7 +3,7 @@ module DossierCpStages
     latex_src_snapshot_name = 'LatexSourceSnapshot'
     [
       {
-        Name: 'Source',
+        Name: 'LatexSourceRepository',
         Actions: [
           {
             Name: 'LatexSourceAction',
@@ -23,7 +23,7 @@ module DossierCpStages
         ]
       },
       {
-        Name: 'Build',
+        Name: 'LatexCompilationAndS3Upload',
         Actions: [
           {
             Name: 'LatexCompilation',
@@ -37,7 +37,6 @@ module DossierCpStages
               ProjectName: code_build_ref
             },
             InputArtifacts: [{ Name: latex_src_snapshot_name }],
-            OutputArtifacts: [{ Name: 'DossierPdfs' }],
             RunOrder: 1
           }
         ]

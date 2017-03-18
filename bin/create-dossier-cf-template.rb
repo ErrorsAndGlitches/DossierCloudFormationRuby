@@ -38,6 +38,7 @@ template do
       Path: '/'
     }
 
+  # TODO: both the Latex and Lambda CodeBuild project reference the same Role thus the Role's permissions are too wide.
   cb_role_name = 'CodeBuildRole'
   resource cb_role_name,
     Type: 'AWS::IAM::Role',
@@ -84,6 +85,7 @@ template do
       Roles: [ref(cb_role_name)]
     }
 
+  dossier_pdf_key = 'DossierLatexPdfs/dossier-latex-pdfs.zip'
   resource latex_cb_proj_name,
     Type: 'AWS::CodeBuild::Project',
     Properties: {
@@ -96,7 +98,21 @@ template do
       Environment: {
         Type: 'LINUX_CONTAINER',
         Image: 'errorsandglitches/ubuntu-latex',
-        ComputeType: 'BUILD_GENERAL1_SMALL'
+        ComputeType: 'BUILD_GENERAL1_SMALL',
+        EnvironmentVariables: [
+          {
+            Name: 'DOSSIER_PDF_ZIP_FILE_NAME',
+            Value: 'dossier-latex-pdfs.zip'
+          },
+          {
+            Name: 'DOSSIER_PDF_BUCKET',
+            Value: ref(dossier_artifacts_bucket_name)
+          },
+          {
+            Name: 'DOSSIER_PDF_KEY',
+            Value: dossier_pdf_key
+          }
+        ]
       },
       Artifacts: {
         Type: 'CODEPIPELINE',
