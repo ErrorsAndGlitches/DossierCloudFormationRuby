@@ -39,7 +39,6 @@ module LambdaCpStages
               ProjectName: code_build_ref
             },
             InputArtifacts: [{ Name: lambda_src_snapshot_name }],
-            OutputArtifacts: [{ Name: 'LambdaJar' }],
             RunOrder: 1
           }
         ]

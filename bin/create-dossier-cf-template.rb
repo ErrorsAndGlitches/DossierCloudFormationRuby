@@ -153,6 +153,7 @@ template do
       Roles: [ref(cb_role_name)]
     }
 
+  lambda_code_jar_key = 'S3DropboxLambdaJar/S3-dropbox-lambda-assembly.jar'
   resource lambda_cb_proj_name,
     Type: 'AWS::CodeBuild::Project',
     Properties: {
@@ -165,7 +166,17 @@ template do
       Environment: {
         Type: 'LINUX_CONTAINER',
         Image: '1science/sbt',
-        ComputeType: 'BUILD_GENERAL1_SMALL'
+        ComputeType: 'BUILD_GENERAL1_SMALL',
+        EnvironmentVariables: [
+          {
+            Name: 'LAMBDA_CODE_JAR_BUCKET',
+            Value: ref(dossier_artifacts_bucket_name)
+          },
+          {
+            Name: 'LAMBDA_CODE_JAR_KEY',
+            Value: lambda_code_jar_key
+          }
+        ]
       },
       Artifacts: {
         Type: 'CODEPIPELINE',
