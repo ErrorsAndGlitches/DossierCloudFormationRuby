@@ -4,6 +4,7 @@ require 'code_pipeline_role_policy_doc'
 require 'code_build_role_policy_doc'
 require 'dossier_cp_stages'
 require 'lambda_cp_stages'
+require 'lambda_function_role_policy_doc'
 
 template do
   @stack_name = 'dossier-system'
@@ -217,4 +218,48 @@ template do
       RestartExecutionOnUpdate: true
     }
 
+  lambda_role = 'S3DropboxLambdaRole'
+  resource lambda_role,
+    Type: 'AWS::IAM::Role',
+    Properties: {
+      AssumeRolePolicyDocument: {
+        Statement: [
+          {
+            Effect: 'Allow',
+            Principal: { Service: ['lambda.amazonaws.com'] },
+            Action: ['sts:AssumeRole']
+          }
+        ]
+      },
+      Path: '/service-role/'
+    }
+
+  lambda_func_name = 'S3DropboxLambda'
+  lambda_assume_role_policy_name  = 'DossierLambdaFunctionAssumeRolePolicy'
+  resource lambda_assume_role_policy_name,
+    Type: 'AWS::IAM::Policy',
+    Properties: {
+      PolicyName: lambda_assume_role_policy_name,
+      PolicyDocument: LambdaFunctionRolePolicyDoc.lambda_policy_document(
+        lambda_func_name,
+        ref(dossier_artifacts_bucket_name),
+        dossier_pdf_key
+      ),
+      Roles: [ref(lambda_role)]
+    }
+
+  resource 'S3DropboxLambdaFunction',
+    Type: 'AWS::Lambda::Function',
+    Properties: {
+      Code: {
+        S3Bucket: ref(dossier_artifacts_bucket_name),
+        S3Key: lambda_code_jar_key
+      },
+      Description: 'A Lambda Function to copy the compiled Latex PDFs from S3 to Dropbox',
+      Handler: 'com.s3dropbox.lambda.LambdaMain::handleRequest',
+      Role: get_att(lambda_role, 'Arn'),
+      Runtime: 'java8',
+      MemorySize: 512,
+      Timeout: 60
+    }
 end.exec!
