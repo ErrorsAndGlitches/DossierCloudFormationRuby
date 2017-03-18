@@ -18,6 +18,16 @@ template do
     }
   )
 
+  cb_build_failure_phone_number = 'BuildFailurePhoneNum'
+  parameter(
+    cb_build_failure_phone_number,
+    {
+      Type: 'String',
+      Description: 'The phone number that will receive a notification if a CodeBuild build fails e.g. +1xxxyyyzzzz',
+      NoEcho: true # mask the value
+    }
+  )
+
   ##################################################################
   # Shared Resources
   ##################################################################
@@ -111,6 +121,10 @@ template do
           {
             Name: 'DOSSIER_PDF_KEY',
             Value: dossier_pdf_key
+          },
+          {
+            Name: 'BUILD_FAILURE_PHONE_NUM',
+            Value: ref(cb_build_failure_phone_number)
           }
         ]
       },
@@ -175,6 +189,10 @@ template do
           {
             Name: 'LAMBDA_CODE_JAR_KEY',
             Value: lambda_code_jar_key
+          },
+          {
+            Name: 'BUILD_FAILURE_PHONE_NUM',
+            Value: ref(cb_build_failure_phone_number)
           }
         ]
       },

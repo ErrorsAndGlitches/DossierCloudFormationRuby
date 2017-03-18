@@ -7,6 +7,19 @@ task :default => :spec
 namespace :dossier do
 
   OAUTH_TOKEN_KEY = :github_oauth_token
+  PHONE_NUM_KEY = :build_failure_phone_num_key
+  REQUIRED_PARAMETERS = [OAUTH_TOKEN_KEY, PHONE_NUM_KEY]
+
+  def run_cf_command_with_params(command, args)
+    run_cf_command(
+      command,
+      '--parameters',
+      [
+        "GitHubOauthToken=#{args_value(args, OAUTH_TOKEN_KEY)}",
+        "BuildFailurePhoneNum=#{args_value(args, PHONE_NUM_KEY)}"
+      ].join(';').prepend('"').concat('"')
+    )
+  end
 
   def run_cf_command(command, *args)
     dir = File.dirname(__FILE__)
@@ -16,13 +29,13 @@ namespace :dossier do
     puts `ruby -I#{rlib_dir} #{cf_script_file} #{command} --region us-west-2 #{args.join(' ')}`
   end
 
-  def oauth_token(args)
-    oauth_token = args[:github_oauth_token]
-    if oauth_token.nil?
-      STDERR.puts 'Github OAuth token must be specified in the rake command e.g. rake task[args]'
+  def args_value(args, key)
+    value = args[key]
+    if value.nil?
+      STDERR.puts "#{key} must be specified in the rake command e.g. rake task[args]"
       exit 1
     else
-      oauth_token
+      value
     end
   end
 
@@ -41,21 +54,21 @@ namespace :dossier do
   task :print do Rake::Task['dossier:run'].invoke(:expand) end
 
   desc 'Create template'
-  task :create, [OAUTH_TOKEN_KEY] do |t, args|
-    run_cf_command(:create, '--parameters', "GitHubOauthToken=#{oauth_token(args)}")
+  task :create, REQUIRED_PARAMETERS do |t, args|
+    run_cf_command_with_params(:create, args)
   end
 
   desc 'Update template'
-  task :update, [OAUTH_TOKEN_KEY] do |t, args|
-    run_cf_command(:update, '--parameters', "GitHubOauthToken=#{oauth_token(args)}")
+  task :update, REQUIRED_PARAMETERS do |t, args|
+    run_cf_command_with_params(:update, args)
   end
 
   desc 'Delete template'
   task :delete do Rake::Task['dossier:run'].invoke(:delete) end
 
   desc 'Check if diff with existing template'
-  task :diff, [OAUTH_TOKEN_KEY] do |t, args|
-    run_cf_command(:diff, '--parameters', "GitHubOauthToken=#{oauth_token(args)}")
+  task :diff, REQUIRED_PARAMETERS do |t, args|
+    run_cf_command_with_params(:diff, args)
   end
 
   desc 'Help'
