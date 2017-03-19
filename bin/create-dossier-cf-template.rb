@@ -8,6 +8,7 @@ require 'lambda_function_role_policy_doc'
 
 template do
   @stack_name = 'dossier-system'
+  stage_num = ENV['STAGE'].to_i
 
   github_oauth_token_name = 'GitHubOauthToken'
   parameter(
@@ -25,6 +26,16 @@ template do
     {
       Type: 'String',
       Description: 'The phone number that will receive a notification if a CodeBuild build fails e.g. +1xxxyyyzzzz',
+      NoEcho: true # mask the value
+    }
+  )
+
+  trigger_bucket_source_account = 'LambdaTriggerBucketSourceAccount'
+  parameter(
+    trigger_bucket_source_account,
+    {
+      Type: 'String',
+      Description: 'The source account number that owns the bucket that will trigger the Lambda function.',
       NoEcho: true # mask the value
     }
   )
@@ -75,8 +86,31 @@ template do
       Roles: [ref(cp_role_name)]
     }
 
+  lambda_func_name = 'S3DropboxLambdaFunction'
   dossier_artifacts_bucket_name = 'DossierCodePipelineArtifactsBucket'
+  dossier_pdf_key = 'DossierLatexPdfs/dossier-latex-pdfs.zip'
   resource dossier_artifacts_bucket_name,
+    Type: 'AWS::S3::Bucket',
+    Properties: stage_num >= 2 ? {
+      NotificationConfiguration: {
+        LambdaConfigurations: [
+          {
+            Event: 's3:ObjectCreated:*',
+            Filter: {
+              S3Key: {
+                Rules: [
+                  { Name: 'prefix', Value: dossier_pdf_key }
+                ]
+              }
+            },
+            Function: get_att(lambda_func_name, 'Arn')
+          }
+        ]
+      }
+    } : {}
+
+  dossier_lambda_code_bucket = 'DossierLambdaCodeBucket'
+  resource dossier_lambda_code_bucket,
     Type: 'AWS::S3::Bucket'
 
   ##################################################################
@@ -96,7 +130,6 @@ template do
       Roles: [ref(cb_role_name)]
     }
 
-  dossier_pdf_key = 'DossierLatexPdfs/dossier-latex-pdfs.zip'
   resource latex_cb_proj_name,
     Type: 'AWS::CodeBuild::Project',
     Properties: {
@@ -147,7 +180,6 @@ template do
         Type: 'S3',
         Location: ref(dossier_artifacts_bucket_name)
       },
-      Name: latex_cp_name,
       RestartExecutionOnUpdate: true
     }
 
@@ -163,7 +195,7 @@ template do
       PolicyName: lambda_cb_assume_role_policy_name,
       PolicyDocument: CodeBuildRolePolicyDoc.cb_policy_document(
         lambda_cb_proj_name,
-        ref(dossier_artifacts_bucket_name)
+        ref(dossier_lambda_code_bucket)
       ),
       Roles: [ref(cb_role_name)]
     }
@@ -185,7 +217,7 @@ template do
         EnvironmentVariables: [
           {
             Name: 'LAMBDA_CODE_JAR_BUCKET',
-            Value: ref(dossier_artifacts_bucket_name)
+            Value: ref(dossier_lambda_code_bucket)
           },
           {
             Name: 'LAMBDA_CODE_JAR_KEY',
@@ -214,52 +246,81 @@ template do
         Type: 'S3',
         Location: ref(dossier_artifacts_bucket_name)
       },
-      Name: lambda_cp_name,
       RestartExecutionOnUpdate: true
     }
 
-  lambda_role = 'S3DropboxLambdaRole'
-  resource lambda_role,
-    Type: 'AWS::IAM::Role',
-    Properties: {
-      AssumeRolePolicyDocument: {
-        Statement: [
-          {
-            Effect: 'Allow',
-            Principal: { Service: ['lambda.amazonaws.com'] },
-            Action: ['sts:AssumeRole']
-          }
-        ]
-      },
-      Path: '/service-role/'
-    }
+  ##################################################################
+  # Lambda Function
+  ##################################################################
 
-  lambda_func_name = 'S3DropboxLambda'
-  lambda_assume_role_policy_name  = 'DossierLambdaFunctionAssumeRolePolicy'
-  resource lambda_assume_role_policy_name,
-    Type: 'AWS::IAM::Policy',
-    Properties: {
-      PolicyName: lambda_assume_role_policy_name,
-      PolicyDocument: LambdaFunctionRolePolicyDoc.lambda_policy_document(
-        lambda_func_name,
-        ref(dossier_artifacts_bucket_name),
-        dossier_pdf_key
-      ),
-      Roles: [ref(lambda_role)]
-    }
+  if stage_num >= 1
+    lambda_role = 'S3DropboxLambdaRole'
+    resource lambda_role,
+      Type: 'AWS::IAM::Role',
+      Properties: {
+        AssumeRolePolicyDocument: {
+          Statement: [
+            {
+              Effect: 'Allow',
+              Principal: { Service: ['lambda.amazonaws.com'] },
+              Action: ['sts:AssumeRole']
+            }
+          ]
+        },
+        Path: '/service-role/'
+      }
 
-  resource 'S3DropboxLambdaFunction',
-    Type: 'AWS::Lambda::Function',
-    Properties: {
-      Code: {
-        S3Bucket: ref(dossier_artifacts_bucket_name),
-        S3Key: lambda_code_jar_key
-      },
-      Description: 'A Lambda Function to copy the compiled Latex PDFs from S3 to Dropbox',
-      Handler: 'com.s3dropbox.lambda.LambdaMain::handleRequest',
-      Role: get_att(lambda_role, 'Arn'),
-      Runtime: 'java8',
-      MemorySize: 512,
-      Timeout: 60
+    lambda_assume_role_policy_name = 'DossierLambdaFunctionAssumeRolePolicy'
+    resource lambda_assume_role_policy_name,
+      Type: 'AWS::IAM::Policy',
+      Properties: {
+        PolicyName: lambda_assume_role_policy_name,
+        PolicyDocument: LambdaFunctionRolePolicyDoc.lambda_policy_document(
+          ref(lambda_func_name),
+          ref(dossier_artifacts_bucket_name),
+          dossier_pdf_key
+        ),
+        Roles: [ref(lambda_role)]
+      }
+
+    resource lambda_func_name,
+      Type: 'AWS::Lambda::Function',
+      Properties: {
+        Code: {
+          S3Bucket: ref(dossier_lambda_code_bucket),
+          S3Key: lambda_code_jar_key
+        },
+        Description: 'A Lambda Function to copy the compiled Latex PDFs from S3 to Dropbox',
+        Handler: 'com.s3dropbox.lambda.LambdaMain::handleRequest',
+        Role: get_att(lambda_role, 'Arn'),
+        Runtime: 'java8',
+        MemorySize: 512,
+        Timeout: 60
+      }
+
+    resource 'S3DropboxLambdaPermission',
+      Type: 'AWS::Lambda::Permission',
+      Properties: {
+        Action: 'lambda:InvokeFunction',
+        FunctionName: get_att(lambda_func_name, 'Arn'),
+        Principal: 's3.amazonaws.com',
+        SourceAccount: ref(trigger_bucket_source_account),
+        SourceArn: sub(
+          'arn:aws:s3:::${BucketName}',
+          { BucketName: ref(dossier_artifacts_bucket_name) }
+        )
+      }
+  end
+
+  ##################################################################
+  # Stack Outputs
+  ##################################################################
+
+  output(
+    'LambdaPipelineName',
+    {
+      Description: 'The name of the CodePipeline that compiles and deploys the S3DropboxLambda AWS Lambda code.',
+      Value: ref(lambda_cp_name)
     }
+  )
 end.exec!

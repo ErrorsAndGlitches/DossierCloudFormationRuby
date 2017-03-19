@@ -1,6 +1,6 @@
 module LambdaFunctionRolePolicyDoc
 
-  def self.lambda_policy_document(lambda_func_name, latex_pdf_bucket, latex_pdf_key)
+  def self.lambda_policy_document(lambda_func_name_ref, latex_pdf_bucket_ref, latex_pdf_key)
     {
       :Version => '2012-10-17',
       :Statement => [
@@ -13,7 +13,10 @@ module LambdaFunctionRolePolicyDoc
           Effect: 'Allow',
           Action: %w(logs:CreateLogStream logs:PutLogEvents),
           Resource: [
-            "arn:aws:logs:us-west-2:000000000000:log-group:/aws/lambda/#{lambda_func_name}:*"
+            sub(
+              'arn:aws:logs:us-west-2:000000000000:log-group:/aws/lambda/${LambdaFuncNameRef}:*',
+              LambdaFuncNameRef: lambda_func_name_ref
+            )
           ]
         },
         {
@@ -24,7 +27,7 @@ module LambdaFunctionRolePolicyDoc
           Resource: sub(
             'arn:aws:s3:::${BucketName}/${ObjectKey}',
             {
-              BucketName: latex_pdf_bucket,
+              BucketName: latex_pdf_bucket_ref,
               ObjectKey: latex_pdf_key
             }
           )
