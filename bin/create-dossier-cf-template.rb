@@ -1,18 +1,25 @@
 require 'cloudformation-ruby-dsl/cfntemplate'
 
+require 'cf_template_constants'
+
 require 'code_pipeline_role_policy_doc'
 require 'code_build_role_policy_doc'
 require 'dossier_cp_stages'
 require 'lambda_cp_stages'
 require 'lambda_function_role_policy_doc'
+require 'lambda_kms_policy'
+
+# Open up the TemplateDSL class to add CfTemplateConstants module
+TemplateDSL.class_eval do
+  include CfTemplateConstants
+end
 
 template do
-  @stack_name = 'dossier-system'
-  stage_num = ENV['STAGE'].to_i
+  @stack_name = cf_stack_name
+  stage_num = ENV[cf_stage_env_var_key].to_i
 
-  github_oauth_token_name = 'GitHubOauthToken'
   parameter(
-    github_oauth_token_name,
+    cf_github_oauth_token_param,
     {
       Type: 'String',
       Description: 'The GitHub OAuth token used for CodePipeline and CodeBuild to access the GitHub repositories.',
@@ -20,23 +27,12 @@ template do
     }
   )
 
-  cb_build_failure_phone_number = 'BuildFailurePhoneNum'
   parameter(
-    cb_build_failure_phone_number,
+    cf_cb_build_failure_phone_num_param,
     {
       Type: 'String',
       Description: 'The phone number that will receive a notification if a CodeBuild build fails e.g. +1xxxyyyzzzz',
-      NoEcho: true # mask the value
-    }
-  )
-
-  trigger_bucket_source_account = 'LambdaTriggerBucketSourceAccount'
-  parameter(
-    trigger_bucket_source_account,
-    {
-      Type: 'String',
-      Description: 'The source account number that owns the bucket that will trigger the Lambda function.',
-      NoEcho: true # mask the value
+      NoEcho: true
     }
   )
 
@@ -91,7 +87,7 @@ template do
   dossier_pdf_key = 'DossierLatexPdfs/dossier-latex-pdfs.zip'
   resource dossier_artifacts_bucket_name,
     Type: 'AWS::S3::Bucket',
-    Properties: stage_num >= 2 ? {
+    Properties: is_s3_trigger_stage?(stage_num) ? {
       NotificationConfiguration: {
         LambdaConfigurations: [
           {
@@ -158,7 +154,7 @@ template do
           },
           {
             Name: 'BUILD_FAILURE_PHONE_NUM',
-            Value: ref(cb_build_failure_phone_number)
+            Value: ref(cf_cb_build_failure_phone_num_param)
           }
         ]
       },
@@ -225,7 +221,7 @@ template do
           },
           {
             Name: 'BUILD_FAILURE_PHONE_NUM',
-            Value: ref(cb_build_failure_phone_number)
+            Value: ref(cf_cb_build_failure_phone_num_param)
           }
         ]
       },
@@ -241,7 +237,7 @@ template do
     Type: 'AWS::CodePipeline::Pipeline',
     Properties: {
       RoleArn: get_att(cp_role_name, 'Arn'),
-      Stages: LambdaCpStages.code_pipeline_stages(ref(github_oauth_token_name), ref(lambda_cb_proj_name)),
+      Stages: LambdaCpStages.code_pipeline_stages(ref(cf_github_oauth_token_param), ref(lambda_cb_proj_name)),
       ArtifactStore: {
         Type: 'S3',
         Location: ref(dossier_artifacts_bucket_name)
@@ -252,22 +248,68 @@ template do
   ##################################################################
   # Lambda Function
   ##################################################################
+  lambda_role = 'S3DropboxLambdaRole'
+  resource lambda_role,
+    Type: 'AWS::IAM::Role',
+    Properties: {
+      AssumeRolePolicyDocument: {
+        Statement: [
+          {
+            Effect: 'Allow',
+            Principal: { Service: ['lambda.amazonaws.com'] },
+            Action: ['sts:AssumeRole']
+          }
+        ]
+      },
+      Path: '/service-role/'
+    }
 
-  if stage_num >= 1
-    lambda_role = 'S3DropboxLambdaRole'
-    resource lambda_role,
-      Type: 'AWS::IAM::Role',
+  resource cf_lambda_env_var_kms_key,
+    Type: 'AWS::KMS::Key',
+    Properties: {
+      Description: 'The KMS key used to encrypt environment variables for the AWS Lambda function.',
+      KeyPolicy: LambdaKmsPolicy.lambda_policy_document(get_att(lambda_role, 'Arn'))
+    }
+
+  if is_lambda_stage?(stage_num)
+    parameter(
+      cf_encrypted_db_app_key_param,
+      {
+        Type: 'String',
+        Description: 'The encrypted Dropbox App Key, which serves as a unique identification label for the app.',
+        NoEcho: true
+      }
+    )
+
+    parameter(
+      cf_encrypted_db_secret_key_param,
+      {
+        Type: 'String',
+        Description: 'The encrypted Dropbox Secret Key, which is used for asymmetric encryption.',
+        NoEcho: true # mask the value
+      }
+    )
+
+    resource lambda_func_name,
+      Type: 'AWS::Lambda::Function',
       Properties: {
-        AssumeRolePolicyDocument: {
-          Statement: [
-            {
-              Effect: 'Allow',
-              Principal: { Service: ['lambda.amazonaws.com'] },
-              Action: ['sts:AssumeRole']
-            }
-          ]
+        Code: {
+          S3Bucket: ref(dossier_lambda_code_bucket),
+          S3Key: lambda_code_jar_key
         },
-        Path: '/service-role/'
+        Description: 'A Lambda Function to copy the compiled Latex PDFs from S3 to Dropbox',
+        Handler: 'com.s3dropbox.lambda.LambdaMain::handleRequest',
+        Role: get_att(lambda_role, 'Arn'),
+        Runtime: 'java8',
+        MemorySize: 512,
+        Timeout: 60,
+        KmsKeyArn: get_att(cf_lambda_env_var_kms_key, 'Arn'),
+        Environment: {
+          Variables: {
+            EncryptedDropboxAppKey: ref(cf_encrypted_db_app_key_param),
+            EncryptedDropboxSecretKey: ref(cf_encrypted_db_secret_key_param)
+          }
+        }
       }
 
     lambda_assume_role_policy_name = 'DossierLambdaFunctionAssumeRolePolicy'
@@ -283,28 +325,13 @@ template do
         Roles: [ref(lambda_role)]
       }
 
-    resource lambda_func_name,
-      Type: 'AWS::Lambda::Function',
-      Properties: {
-        Code: {
-          S3Bucket: ref(dossier_lambda_code_bucket),
-          S3Key: lambda_code_jar_key
-        },
-        Description: 'A Lambda Function to copy the compiled Latex PDFs from S3 to Dropbox',
-        Handler: 'com.s3dropbox.lambda.LambdaMain::handleRequest',
-        Role: get_att(lambda_role, 'Arn'),
-        Runtime: 'java8',
-        MemorySize: 512,
-        Timeout: 60
-      }
-
     resource 'S3DropboxLambdaPermission',
       Type: 'AWS::Lambda::Permission',
       Properties: {
         Action: 'lambda:InvokeFunction',
         FunctionName: get_att(lambda_func_name, 'Arn'),
         Principal: 's3.amazonaws.com',
-        SourceAccount: ref(trigger_bucket_source_account),
+        SourceAccount: aws_account_id,
         SourceArn: sub(
           'arn:aws:s3:::${BucketName}',
           { BucketName: ref(dossier_artifacts_bucket_name) }
@@ -317,10 +344,18 @@ template do
   ##################################################################
 
   output(
-    'LambdaPipelineName',
+    lambda_cp_name,
     {
       Description: 'The name of the CodePipeline that compiles and deploys the S3DropboxLambda AWS Lambda code.',
       Value: ref(lambda_cp_name)
+    }
+  )
+
+  output(
+    cf_lambda_env_var_kms_key,
+    {
+      Description: 'The KMS key ARN that is used to encrypt the environment variables for the Lambda function.',
+      Value: get_att(cf_lambda_env_var_kms_key, 'Arn')
     }
   )
 end.exec!
