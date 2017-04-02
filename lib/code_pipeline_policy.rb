@@ -1,6 +1,6 @@
-module CodePipelineRolePolicyDoc
+module CodePipelinePolicy
 
-  def self.policy_document
+  def self.document
     {
       :Statement => [
         {

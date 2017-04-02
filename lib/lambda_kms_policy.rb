@@ -1,6 +1,6 @@
 module LambdaKmsPolicy
 
-  def self.lambda_policy_document(lambda_role_arn)
+  def self.document(lambda_role_arn)
     {
       :Version => '2012-10-17',
       :Statement => [
@@ -25,11 +25,7 @@ module LambdaKmsPolicy
             AWS: lambda_role_arn
           },
           Action: [
-            'kms:Encrypt',
             'kms:Decrypt',
-            'kms:ReEncrypt*',
-            'kms:GenerateDataKey*',
-            'kms:DescribeKey'
           ],
           Resource: '*'
         }

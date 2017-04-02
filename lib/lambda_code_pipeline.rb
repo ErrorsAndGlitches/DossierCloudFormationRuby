@@ -1,5 +1,5 @@
-module LambdaCpStages
-  def self.code_pipeline_stages(token, code_build_ref)
+module LambdaCodePipeline
+  def self.stages(token, code_build_ref)
     lambda_src_snapshot_name = 'LambdaSourceSnapshot'
     [
       {

@@ -1,5 +1,5 @@
-module DossierCpStages
-  def self.code_pipeline_stages(code_build_ref)
+module LatexCodePipeline
+  def self.stages(code_build_ref)
     latex_src_snapshot_name = 'LatexSourceSnapshot'
     [
       {

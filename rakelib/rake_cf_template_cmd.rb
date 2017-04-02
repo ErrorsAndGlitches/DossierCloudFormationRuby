@@ -46,15 +46,11 @@ class RakeCfTemplateCmd
       }
     ]
 
-    if is_lambda_stage?(stage_num)
+    if is_lambda_pipeline_stage?(stage_num)
       params.concat [
         {
-          key: cf_encrypted_db_app_key_param,
-          value: encrypted_db_app_key_value
-        },
-        {
-          key: cf_encrypted_db_secret_key_param,
-          value: encrypted_db_secret_key_value
+          key: cf_encrypted_dbx_token_param,
+          value: encrypted_db_token_value
         }
       ]
     end
@@ -62,16 +58,10 @@ class RakeCfTemplateCmd
     params
   end
 
-  def encrypted_db_app_key_value
+  def encrypted_db_token_value
     KmsEncryption
       .new(kms_arn)
-      .encrypt(@rake_args.value(rt_dropbox_app_key_key))
-  end
-
-  def encrypted_db_secret_key_value
-    KmsEncryption
-      .new(kms_arn)
-      .encrypt(@rake_args.value(rt_dropbox_secret_key_key))
+      .encrypt(@rake_args.value(rt_dbx_token_key))
   end
 
   def kms_arn

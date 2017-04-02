@@ -12,11 +12,7 @@ module RakeTaskArgKeys
     'BuildFailurePhoneNum'
   end
 
-  def rt_dropbox_app_key_key
-    'DropboxAppKey'
-  end
-
-  def rt_dropbox_secret_key_key
-    'DropboxSecretKey'
+  def rt_dbx_token_key
+    'DropboxToken'
   end
 end

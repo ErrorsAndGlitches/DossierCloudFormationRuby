@@ -21,8 +21,7 @@ namespace :dossier do
     rt_github_oauth_token_key,
     rt_cb_build_failure_phone_num_key,
     rt_stage_num_key,
-    rt_dropbox_app_key_key,
-    rt_dropbox_secret_key_key
+    rt_dbx_token_key
   ]
 
   # For command options, see https://github.com/bazaarvoice/cloudformation-ruby-dsl
@@ -53,7 +52,7 @@ namespace :dossier do
   desc "Deploy the given CloudFormationStage; valid values are #{valid_stages}"
   task :deploy_stage, REQUIRED_PARAMETERS do |t, args|
     rake_args = RakeTaskArgs.new(args)
-    command = is_first_stage?(rake_args.value(rt_stage_num_key)) ? :create : :update
+    command = is_first_stage?(rake_args.value(rt_stage_num_key).to_i) ? :create : :update
     RakeCfTemplateCmd
       .new(rake_args, command)
       .run
@@ -67,7 +66,11 @@ namespace :dossier do
   end
 
   desc 'Delete template'
-  task :delete do Rake::Task['dossier:run'].invoke(:delete) end
+  task :delete, REQUIRED_PARAMETERS do |t, args|
+    RakeCfTemplateCmd
+      .new(RakeTaskArgs.new(args), :delete)
+      .run
+  end
 
   desc 'Help'
   task :help do Rake::Task['dossier:run'].invoke(:help) end
