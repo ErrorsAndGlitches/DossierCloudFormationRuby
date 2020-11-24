@@ -12,10 +12,6 @@ module CfTemplateConstants
     'BuildFailurePhoneNum'
   end
 
-  def cf_encrypted_dbx_token_param
-    'EncryptedDropboxToken'
-  end
-
   def cf_stage_env_var_key
     'STAGE'
   end

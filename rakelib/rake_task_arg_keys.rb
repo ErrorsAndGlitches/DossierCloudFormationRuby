@@ -11,8 +11,4 @@ module RakeTaskArgKeys
   def rt_cb_build_failure_phone_num_key
     'BuildFailurePhoneNum'
   end
-
-  def rt_dbx_token_key
-    'DropboxToken'
-  end
 end

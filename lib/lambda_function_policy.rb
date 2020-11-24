@@ -1,6 +1,6 @@
 module LambdaFunctionPolicy
 
-  def self.document(lambda_func_name_ref, latex_bucket_ref, latex_pdf_key)
+  def self.document(lambda_func_name_ref, latex_bucket_ref, latex_pdf_key, lambda_bucket_ref)
     {
       :Version => '2012-10-17',
       :Statement => [
@@ -19,6 +19,21 @@ module LambdaFunctionPolicy
               AccountId: aws_account_id
             )
           ]
+        },
+        {
+          Effect: 'Allow',
+          Action: %w(kms:Decrypt kms:Encrypt kms:GenerateDataKey),
+          Resource: '*'
+        },
+        {
+          Effect: 'Allow',
+          Action: %w(s3:GetObject s3:PutObject),
+          Resource: sub(
+            'arn:aws:s3:::${BucketName}/dbx-credentials.json',
+            {
+              BucketName: lambda_bucket_ref
+            }
+          )
         },
         {
           Effect: 'Allow',

@@ -35,7 +35,7 @@ class RakeCfTemplateCmd
   end
 
   def cf_params
-    params = [
+    [
       {
         key: cf_github_oauth_token_param,
         value: @rake_args.value(rt_github_oauth_token_key)
@@ -45,28 +45,5 @@ class RakeCfTemplateCmd
         value: @rake_args.value(rt_cb_build_failure_phone_num_key)
       }
     ]
-
-    if is_lambda_pipeline_stage?(stage_num)
-      params.concat [
-        {
-          key: cf_encrypted_dbx_token_param,
-          value: encrypted_db_token_value
-        }
-      ]
-    end
-
-    params
-  end
-
-  def encrypted_db_token_value
-    KmsEncryption
-      .new(kms_arn)
-      .encrypt(@rake_args.value(rt_dbx_token_key))
-  end
-
-  def kms_arn
-    CloudFormationOutput
-      .new(cf_stack_name)
-      .output_value(cf_lambda_env_var_kms_key)
   end
 end

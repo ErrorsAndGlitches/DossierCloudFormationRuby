@@ -86,6 +86,12 @@ template do
             Function: get_att(lambda_func_name, 'Arn')
           }
         ]
+      },
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true
       }
     } : {}
 
@@ -133,7 +139,10 @@ template do
       },
       Environment: {
         Type: 'LINUX_CONTAINER',
-        Image: 'errorsandglitches/ubuntu-latex',
+        Image: sub(
+          '${AccountId}.dkr.ecr.us-west-2.amazonaws.com/errorsandglitches/ubuntu-latex:latest',
+          AccountId: aws_account_id
+        ),
         ComputeType: 'BUILD_GENERAL1_SMALL',
         EnvironmentVariables: [
           {
@@ -202,7 +211,7 @@ template do
     }
 
   # This is just a placeholder Lambda function that is eventually updated by the package that contains the
-  # implementation of the S3 to Dropbox publishment.
+  # implementation of the S3 to Dropbox publishing.
   resource lambda_func_name,
     Type: 'AWS::Lambda::Function',
     Properties: {
@@ -220,6 +229,10 @@ template do
       Timeout: 60,
     }
 
+  lambda_bucket = 'LambdaBucket'
+  resource lambda_bucket,
+    Type: 'AWS::S3::Bucket'
+
   lambda_assume_role_policy_name = 'LambdaFunctionAssumeRolePolicy'
   resource lambda_assume_role_policy_name,
     Type: 'AWS::IAM::Policy',
@@ -228,7 +241,8 @@ template do
       PolicyDocument: LambdaFunctionPolicy.document(
         ref(lambda_func_name),
         ref(latex_bucket),
-        dossier_pdf_key
+        dossier_pdf_key,
+        ref(lambda_bucket)
       ),
       Roles: [ref(lambda_role)]
     }
@@ -251,15 +265,6 @@ template do
   ##################################################################
 
   if is_lambda_pipeline_stage?(stage_num)
-    parameter(
-      cf_encrypted_dbx_token_param,
-      {
-        Type: 'String',
-        Description: 'The encrypted Dropbox App Key, which serves as a unique identification label for the app.',
-        NoEcho: true
-      }
-    )
-
     lambda_cb_role_name = 'LambdaCodeBuildRole'
     resource lambda_cb_role_name,
       Type: 'AWS::IAM::Role',
@@ -275,10 +280,6 @@ template do
         },
         Path: '/'
       }
-
-    lambda_bucket = 'LambdaBucket'
-    resource lambda_bucket,
-      Type: 'AWS::S3::Bucket'
 
     lambda_cb_proj_name = 'LambdaCodeBuildProject'
     lambda_cb_policy_name = 'LambdaCodeBuildPolicy'
@@ -302,7 +303,7 @@ template do
         },
         Environment: {
           Type: 'LINUX_CONTAINER',
-          Image: '1science/sbt',
+          Image: 'mozilla/sbt',
           ComputeType: 'BUILD_GENERAL1_SMALL',
           EnvironmentVariables: [
             {
@@ -318,12 +319,20 @@ template do
               Value: get_att(lambda_func_name, 'Arn')
             },
             {
-              Name: 'ENCRYPTED_DBX_TOKEN',
-              Value: ref(cf_encrypted_dbx_token_param)
-            },
-            {
               Name: 'BUILD_FAILURE_PHONE_NUM',
               Value: ref(cf_cb_build_failure_phone_num_param)
+            },
+            {
+              Name: 'DBX_CREDENTIAL_KMS_ID',
+              Value: ref(cf_lambda_env_var_kms_key)
+            },
+            {
+              Name: 'DBX_CREDENTIAL_S3_KEY',
+              Value: 'dbx-credentials.json'
+            },
+            {
+              Name: 'DBX_CREDENTIAL_S3_BUCKET',
+              Value: ref(lambda_bucket)
             },
           ]
         },
