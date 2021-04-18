@@ -37,8 +37,8 @@ class RakeCfTemplateCmd
   def cf_params
     [
       {
-        key: cf_github_oauth_token_param,
-        value: @rake_args.value(rt_github_oauth_token_key)
+        key: cf_github_connection_arn_param,
+        value: @rake_args.value(rt_github_connection_arn_key)
       },
       {
         key: cf_cb_build_failure_phone_num_param,

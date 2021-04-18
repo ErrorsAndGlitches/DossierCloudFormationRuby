@@ -18,7 +18,7 @@ namespace :dossier do
   include CfTemplateConstants
 
   REQUIRED_PARAMETERS = [
-    rt_github_oauth_token_key,
+    rt_github_connection_arn_key,
     rt_cb_build_failure_phone_num_key,
     rt_stage_num_key
   ]

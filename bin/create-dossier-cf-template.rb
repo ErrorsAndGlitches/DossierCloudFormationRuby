@@ -20,7 +20,7 @@ template do
   stage_num = ENV[cf_stage_env_var_key].to_i
 
   parameter(
-    cf_github_oauth_token_param,
+    cf_github_connection_arn_param,
     {
       Type: 'String',
       Description: 'The GitHub OAuth token used for CodePipeline and CodeBuild to access the GitHub repositories.',
@@ -348,7 +348,7 @@ template do
       Type: 'AWS::CodePipeline::Pipeline',
       Properties: {
         RoleArn: get_att(cp_role_name, 'Arn'),
-        Stages: LambdaCodePipeline.stages(ref(cf_github_oauth_token_param), ref(lambda_cb_proj_name)),
+        Stages: LambdaCodePipeline.stages(ref(cf_github_connection_arn_param), ref(lambda_cb_proj_name)),
         ArtifactStore: {
           Type: 'S3',
           Location: ref(lambda_bucket)

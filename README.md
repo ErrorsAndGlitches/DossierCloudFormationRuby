@@ -47,7 +47,7 @@ description of each. The `Name` is the name of the argument, which is printed in
 
 | Name                   | Description                                                                                                                     |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `GitHubOauthToken`     | The OAuth token used to access the GitHub repository containing the S3DropboxLambda project                                     |
+| `GitHubConnectionArn`  | The CodeStar GitHub connection ARN. This is used for CodePipeline to connect to the GitHub repo.                                |
 | `BuildFailurePhoneNum` | In the event of a build failure, the phone number to send an alert SMS to                                                       |
 | `StageNum`             | The CloudFormation stack stage, see [Multi-Stage CloudFormation Stack Deployment](#multi-stage-cloudformation-stack-deployment) |
 
@@ -65,8 +65,8 @@ The stages are deployed via (the third argument is the stage number):
 
 ```
 # run on CLI
-rake dossier:deploy_stage'[OAUTH_TOKEN,PHONE_NUM,0]'
-rake dossier:deploy_stage'[OAUTH_TOKEN,PHONE_NUM,1]'
+rake dossier:deploy_stage'[GITHUB_CONNECTION,PHONE_NUM,0]'
+rake dossier:deploy_stage'[GITHUB_CONNECTION,PHONE_NUM,1]'
 ```
 
 # Project Structure

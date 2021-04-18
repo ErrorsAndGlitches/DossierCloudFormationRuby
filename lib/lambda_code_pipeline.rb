@@ -1,5 +1,5 @@
 module LambdaCodePipeline
-  def self.stages(token, code_build_ref)
+  def self.stages(git_hub_conn_arn, code_build_ref)
     lambda_src_snapshot_name = 'LambdaSourceSnapshot'
     [
       {
@@ -9,15 +9,15 @@ module LambdaCodePipeline
             Name: 'LambdaSourceAction',
             ActionTypeId: {
               Category: 'Source',
-              Owner: 'ThirdParty',
+              Owner: 'AWS',
               Version: 1,
-              Provider: 'GitHub'
+              Provider: 'CodeStarSourceConnection'
             },
             Configuration: {
-              Owner: 'ErrorsAndGlitches',
-              Repo: 'S3DropboxLambda',
-              Branch: 'master',
-              OAuthToken: token
+              ConnectionArn: git_hub_conn_arn,
+              FullRepositoryId: 'ErrorsAndGlitches/S3DropboxLambda',
+              BranchName: 'master',
+              OutputArtifactFormat: 'CODE_ZIP'
             },
             OutputArtifacts: [{ Name: lambda_src_snapshot_name }],
             RunOrder: 1

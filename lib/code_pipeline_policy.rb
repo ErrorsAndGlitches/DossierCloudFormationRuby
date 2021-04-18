@@ -18,8 +18,25 @@ module CodePipelinePolicy
             'codecommit:CancelUploadArchive',
             'codecommit:GetBranch',
             'codecommit:GetCommit',
+            'codecommit:GetRepository',
             'codecommit:GetUploadArchiveStatus',
             'codecommit:UploadArchive',
+          ],
+          :Resource => '*',
+          :Effect => 'Allow',
+        },
+        {
+          :Action => [
+            'appconfig:StartDeployment',
+            'appconfig:GetDeployment',
+            'appconfig:StopDeployment',
+          ],
+          :Resource => '*',
+          :Effect => 'Allow',
+        },
+        {
+          :Action => [
+            'codestar-connections:UseConnection',
           ],
           :Resource => '*',
           :Effect => 'Allow',

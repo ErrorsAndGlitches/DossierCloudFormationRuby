@@ -4,8 +4,8 @@ module CfTemplateConstants
     'dossier-system'
   end
 
-  def cf_github_oauth_token_param
-    'GitHubOauthToken'
+  def cf_github_connection_arn_param
+    'GitHubConnectionArn'
   end
 
   def cf_cb_build_failure_phone_num_param

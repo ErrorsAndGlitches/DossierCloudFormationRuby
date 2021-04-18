@@ -4,8 +4,8 @@ module RakeTaskArgKeys
     'StageNum'
   end
 
-  def rt_github_oauth_token_key
-    'GitHubOauthToken'
+  def rt_github_connection_arn_key
+    'GitHubConnectionArn'
   end
 
   def rt_cb_build_failure_phone_num_key
