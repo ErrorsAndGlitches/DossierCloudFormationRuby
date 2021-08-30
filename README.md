@@ -33,7 +33,7 @@ reproducible approach to generating, connecting, and retiring AWS resources.
 
 # Installation
 
-Installation is achieved using `bundle` with the package's `Gemfile`:
+This project has only been tested with Ruby 2.x. Installation is achieved using `bundle` with the package's `Gemfile`:
 
 ```
 bundle install
@@ -47,7 +47,7 @@ description of each. The `Name` is the name of the argument, which is printed in
 
 | Name                   | Description                                                                                                                     |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `GitHubConnectionArn`  | The CodeStar GitHub connection ARN. This is used for CodePipeline to connect to the GitHub repo.                                |
+| `GitHubConnectionArn`  | The CodeStar GitHub connection ARN. This is used for CodePipeline to connect to the GitHub repo. If this is already set up, you will find the ARN in CodePipeline.                               |
 | `BuildFailurePhoneNum` | In the event of a build failure, the phone number to send an alert SMS to                                                       |
 | `StageNum`             | The CloudFormation stack stage, see [Multi-Stage CloudFormation Stack Deployment](#multi-stage-cloudformation-stack-deployment) |
 

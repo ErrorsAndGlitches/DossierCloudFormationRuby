@@ -303,7 +303,10 @@ template do
         },
         Environment: {
           Type: 'LINUX_CONTAINER',
-          Image: 'mozilla/sbt',
+          Image: sub(
+            '${AccountId}.dkr.ecr.us-west-2.amazonaws.com/errorsandglitches/sbt:latest',
+            AccountId: aws_account_id
+          ),
           ComputeType: 'BUILD_GENERAL1_SMALL',
           EnvironmentVariables: [
             {
